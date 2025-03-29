@@ -108,8 +108,7 @@ document.addEventListener('DOMContentLoaded', () => {
       } else {
         // Start speaking the message
         currentUtterance = new SpeechSynthesisUtterance(content);
-
-        currentUtterance.lang = 'en-US'; // Default to English if detection fails
+        currentUtterance.lang = 'en-US'; // Always set language to English
 
         speechSynthesis.speak(currentUtterance);
         voiceButton.classList.add('playing'); // Optional: Add a visual indicator
@@ -327,4 +326,111 @@ document.addEventListener('DOMContentLoaded', () => {
       }
     });
   }
+
+    document.getElementById("voiceAssistant").addEventListener("click", function() {
+      document.querySelector(".page-container").style.transform = "translateX(-100vw)";
+    });
+
+    document.getElementById("backButton").addEventListener("click", function() {
+        document.querySelector(".page-container").style.transform = "translateX(0)";
+    });
+
+
+  // Talk Assistant functionality
+  const talkAssistantButton = document.getElementById('talk-assistant-btn');
+  let isAssistantListening = false;
+  let currentUtterance = null;
+
+  talkAssistantButton.addEventListener('click', () => {
+    if (!recognition) {
+      alert('Speech recognition is not supported in this browser.');
+      return;
+    }
+
+    if (isAssistantListening) {
+      recognition.stop();
+      talkAssistantButton.textContent = 'Talk Assistant';
+      isAssistantListening = false;
+    } else {
+      startListening();
+    }
+  });
+
+  function startListening() {
+    if (isAssistantListening) return; // Prevent overlapping recognition sessions
+    recognition.start();
+    talkAssistantButton.textContent = 'Listening...';
+    isAssistantListening = true;
+  }
+
+  recognition.onresult = async (event) => {
+    const userQuery = event.results[0][0].transcript;
+    addMessage(userQuery, true); // Display the user's query in the chat
+    talkAssistantButton.textContent = 'Processing...';
+
+    // Stop any ongoing speech synthesis
+    if (speechSynthesis.speaking) {
+      speechSynthesis.cancel();
+    }
+
+    try {
+      // Send the user's query to the backend
+      const response = await fetch(`http://localhost:8000/chat/query?userChatQuery=${encodeURIComponent(userQuery)}`, {
+        method: "GET",
+        headers: { "Content-Type": "application/json" }
+      });
+
+      if (!response.ok) {
+        throw new Error("Failed to fetch response from server.");
+      }
+
+      const data = await response.json();
+      const botResponse = data.response;
+
+      // Display the bot's response in the chat
+      addMessage(botResponse, false);
+
+      // Convert the bot's response to speech
+      try {
+        // Stop any ongoing speech synthesis
+        if (speechSynthesis.speaking) {
+          speechSynthesis.cancel();
+        }
+
+        // Convert the bot's response to speech
+        currentUtterance = new SpeechSynthesisUtterance(botResponse);
+        currentUtterance.lang = 'en-US'; // Set the language for speech synthesis
+
+        currentUtterance.onerror = (event) => {
+          console.error('Speech synthesis error:', event.error);
+          addMessage("Sorry, I couldn't speak the response. Please check your browser settings.", false);
+        };
+
+        speechSynthesis.speak(currentUtterance);
+      } catch (error) {
+        console.error("Speech synthesis failed:", error);
+        addMessage("Sorry, I couldn't process the speech output. Please try again.", false);
+      }
+
+    } catch (error) {
+      addMessage("Sorry, I couldn't process your request. Please try again.", false);
+      console.error("Error:", error);
+
+      // Restart listening in case of an error
+      if (isAssistantListening) {
+        startListening();
+      }
+    } finally {
+      talkAssistantButton.textContent = 'Listening...';
+    }
+  };
+
+  recognition.onerror = (event) => {
+    console.error('Speech recognition error:', event.error);
+
+    // Restart listening on error
+    if (isAssistantListening) {
+      startListening();
+    }
+  };
 });

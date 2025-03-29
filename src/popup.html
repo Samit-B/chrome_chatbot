@@ -9,10 +9,55 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/remixicon/fonts/remixicon.css">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-
     <script src="browser-polyfill.js"></script>
     
     <style>
+
+                /* Styling the page container */
+        .page-container {
+            display: flex;
+            width: 200vw; /* Two pages side by side */
+            transition: transform 0.5s ease-in-out;
+        }
+
+        /* Styling each page */
+        .page {
+            width: 100vw;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+
+        /* First page styling */
+        #page1 {
+            background-color: white;
+        }
+
+        /* Second page styling */
+        #page2 {
+            background-color: lightblue;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            flex-direction: column;
+        }
+
+        /* Button styling */
+        .back-button {
+            padding: 10px 20px;
+            background-color: #ff6b6b;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .back-button:hover {
+            background-color: #ff4040;
+        }
+
+
         /* Firefox sidebar specific styles */
         @-moz-document url-prefix() {
             :root {
@@ -571,6 +616,40 @@
                 opacity: 1;
             }
         }
+
+        /* Ball animation styles */
+        @keyframes bounce {
+            0%, 100% {
+                transform: translateY(0);
+            }
+            50% {
+                transform: translateY(-10px);
+            }
+        }
+
+        .bouncing-ball {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            background-color: var(--primary-color);
+            border-radius: 50%;
+            animation: bounce 1s infinite;
+        }
+
+        #talk-assistant-btn {
+            display: flex;
+            align-items: center;
+            gap: 1rem;
+            flex-direction: column; /* Adjust layout for larger ball */
+        }
+
+        /* Center the Talk Assistant button */
+        .voice-assistant-container {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+        }
     </style>
 </head>
 
@@ -588,54 +667,81 @@
 </head>
 
 <body>
-    <div class="container">
-        <header class="header">
-            <div class="header-title">
-                <div class="flex items-center p-0 bg-blue-50 rounded-lg shadow-md">
-                    <img src="C:\Algo Orange\chrome_pluginn\src\assets\icon.png" alt="Icon" class="w-6 h-6">
-                    <h1 class="text-xl font-bold text-blue-800">Ask Algo!</h1>
-                </div>
-                <div class="controls">
-                    <button class="theme-toggle" aria-label="Toggle theme">
-                        <i class="fas fa-moon"></i>
-                    </button>
-                </div>
-        </header>
+    <div class="page-container">
+        <!-- First Page -->
+        <div class="page" id="page1">
+            <div class="container">
+                <header class="header">
+                    <div class="header-title">
+                        <div class="flex items-center p-0 bg-blue-50 rounded-lg shadow-md">
+                            <img src="C:\Algo Orange\chrome_pluginn\src\assets\icon.png" alt="Icon" class="w-6 h-6">
+                            <h1 class="text-xl font-bold text-blue-800">Ask Algo!</h1>
+                        </div>
+                        <div class="controls">
+                            <button class="theme-toggle" aria-label="Toggle theme">
+                                <i class="fas fa-moon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
 
-        <div class="chat-container" id="chatContainer">
-            <!-- Messages will be added here -->
-            <div class="typing-indicator">
-                <img src="C:\Algo Orange\chrome_pluginn\src\assets\icon.png" alt="Loading..." class="pulsating-logo">
+                <div class="chat-container" id="chatContainer">
+                    <!-- Messages will be added here -->
+                    <div class="typing-indicator">
+                        <img src="C:\Algo Orange\chrome_pluginn\src\assets\icon.png" alt="Loading..." class="pulsating-logo">
+                    </div>
+                </div>
+
+                <div class="input-container">
+                    <div class="input-wrapper">
+                        <input type="text" class="message-input" placeholder="Type your message..." aria-label="Message input">
+                        <div class="action-buttons">
+                            <input type="file" id="fileInput" style="display: none;" />
+                            <button class="action-button" aria-label="Add attachment">
+                                <i class="fas fa-paperclip"></i>
+                            </button>
+                            <button class="action-button voice-toggle" id="voiceToggle" aria-label="Voice input">
+                                <i class="fas fa-microphone"></i>
+                            </button>
+                            <button class="action-button" id="voiceAssistant">
+                                <i class="fas fa-headset"></i>
+                            </button>
+                            <button class="send-button">
+                                <i class="fas fa-paper-plane"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
 
-
-        <div class="input-container">
-            <div class="input-wrapper">
-                <input type="text" class="message-input" placeholder="Type your message..." aria-label="Message input">
-                <div class="action-buttons">
-                    <input type="file" id="fileInput" style="display: none;" />
-                    <button class="action-button" aria-label="Add attachment">
-                        <i class="fas fa-paperclip"></i>
+        <!-- Second Page (Voice Assistant Page) -->
+        <div class="page" id="page2">
+            <div class="container">
+                <header class="header">
+                    <div class="header-title">
+                        <div class="flex items-center p-0 bg-blue-50 rounded-lg shadow-md">
+                            <img src="C:\Algo Orange\chrome_pluginn\src\assets\icon.png" alt="Icon" class="w-6 h-6">
+                            <h1 class="text-xl font-bold text-blue-800">Ask Algo!</h1>
+                        </div>
+                        <div class="controls">
+                            <button class="theme-toggle" aria-label="Toggle theme">
+                                <i class="fas fa-moon"></i>
+                            </button>
+                        </div>
+                    </div>
+                </header>
+                
+                <div class="voice-assistant-container">
+                    <button class="action-button" id="talk-assistant-btn">
+                        <div class="bouncing-ball"></div>
+                        Talk Assistant
                     </button>
-                    <button class="action-button voice-toggle" aria-label="Voice input">
-                        <i class="fas fa-microphone"></i>
-                    </button>
-                    <button class="action-button voice-conversation" aria-label="Voice conversation">
-                        <i class="fas fa-headset"></i>
-                    </button>
-                    <button class="send-button">
-                        <i class="fas fa-paper-plane"></i>
-                    </button>
+                </div>
+                <div class="input-container">
+                    <button class="back-button" id="backButton">Go Back</button>
                 </div>
             </div>
         </div>
-    </div>
-    <script src="scripts.js"></script>
 </body>
-
-</html>
-    </div>
-</body>
-
 </html>
