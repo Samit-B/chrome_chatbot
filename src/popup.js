@@ -104,14 +104,18 @@ document.addEventListener('DOMContentLoaded', () => {
         // If already speaking, stop the speech synthesis
         speechSynthesis.cancel();
         currentUtterance = null;
-        voiceButton.classList.remove('playing'); // Optional: Add a visual indicator
+        voiceButton.classList.remove('playing'); // Stop animation
       } else {
         // Start speaking the message
         currentUtterance = new SpeechSynthesisUtterance(content);
         currentUtterance.lang = 'en-US'; // Always set language to English
 
+        currentUtterance.onend = () => {
+          voiceButton.classList.remove('playing'); // Stop animation when playback is complete
+        };
+
         speechSynthesis.speak(currentUtterance);
-        voiceButton.classList.add('playing'); // Optional: Add a visual indicator
+        voiceButton.classList.add('playing'); // Start animation
       }
     });
 
@@ -337,100 +341,147 @@ document.addEventListener('DOMContentLoaded', () => {
 
 
   // Talk Assistant functionality
-  const talkAssistantButton = document.getElementById('talk-assistant-btn');
-  let isAssistantListening = false;
-  let currentUtterance = null;
+const talkAssistantButton = document.getElementById('talk-assistant-btn');
+let isAssistantListening = false;
+let currentUtterance = null;
+let silenceTimeout = null;
 
-  talkAssistantButton.addEventListener('click', () => {
-    if (!recognition) {
-      alert('Speech recognition is not supported in this browser.');
-      return;
-    }
-
-    if (isAssistantListening) {
-      recognition.stop();
-      talkAssistantButton.textContent = 'Talk Assistant';
-      isAssistantListening = false;
-    } else {
-      startListening();
-    }
-  });
-
-  function startListening() {
-    if (isAssistantListening) return; // Prevent overlapping recognition sessions
-    recognition.start();
-    talkAssistantButton.textContent = 'Listening...';
-    isAssistantListening = true;
+talkAssistantButton.addEventListener('click', () => {
+  if (!recognition) {
+    alert('Speech recognition is not supported in this browser.');
+    return;
   }
 
-  recognition.onresult = async (event) => {
-    const userQuery = event.results[0][0].transcript;
-    addMessage(userQuery, true); // Display the user's query in the chat
-    talkAssistantButton.textContent = 'Processing...';
+  if (isAssistantListening) {
+    stopListening();
+  } else {
+    startListening();
+  }
+});
 
-    // Stop any ongoing speech synthesis
-    if (speechSynthesis.speaking) {
-      speechSynthesis.cancel();
-    }
+// Start Listening
+function startListening() {
+  if (isAssistantListening) return;
 
-    try {
-      // Send the user's query to the backend
-      const response = await fetch(`http://localhost:8000/chat/query?userChatQuery=${encodeURIComponent(userQuery)}`, {
-        method: "GET",
-        headers: { "Content-Type": "application/json" }
-      });
+  recognition.start();
+  isAssistantListening = true;
+  setAnimationState(talkAssistantButton, 'listening');
+  talkAssistantButton.textContent = 'Listening...';
 
-      if (!response.ok) {
-        throw new Error("Failed to fetch response from server.");
-      }
+  silenceTimeout = setTimeout(() => {
+    stopListening();
+  }, 60000); // 1 min silence timeout
+}
 
-      const data = await response.json();
-      const botResponse = data.response;
+// Stop Listening
+function stopListening() {
+  recognition.stop();
+  clearTimeout(silenceTimeout);
+  isAssistantListening = false;
+  setAnimationState(talkAssistantButton, null);
+  talkAssistantButton.textContent = 'Talk Assistant';
+}
 
-      // Display the bot's response in the chat
-      addMessage(botResponse, false);
+// Interrupt bot if user starts speaking
+recognition.onstart = () => {
+  console.log("Recognition started");
+  if (speechSynthesis.speaking) {
+    console.log("User interrupted — bot stopped");
+    speechSynthesis.cancel(); // stop bot immediately
+  }
+};
 
-      // Convert the bot's response to speech
-      try {
-        // Stop any ongoing speech synthesis
-        if (speechSynthesis.speaking) {
-          speechSynthesis.cancel();
-        }
+// On user speech result
+recognition.onresult = async (event) => {
+  clearTimeout(silenceTimeout);
+  const userQuery = event.results[0][0].transcript;
+  console.log("User Query:", userQuery);
 
-        // Convert the bot's response to speech
-        currentUtterance = new SpeechSynthesisUtterance(botResponse);
-        currentUtterance.lang = 'en-US'; // Set the language for speech synthesis
+  addMessage(userQuery, true);
+  setAnimationState(talkAssistantButton, 'processing');
+  talkAssistantButton.textContent = 'Processing...';
 
-        currentUtterance.onerror = (event) => {
-          console.error('Speech synthesis error:', event.error);
-          addMessage("Sorry, I couldn't speak the response. Please check your browser settings.", false);
-        };
+  try {
+    const response = await fetch(`http://localhost:8000/chat/query?userChatQuery=${encodeURIComponent(userQuery)}`);
+    const data = await response.json();
+    const botResponse = data.response;
 
-        speechSynthesis.speak(currentUtterance);
-      } catch (error) {
-        console.error("Speech synthesis failed:", error);
-        addMessage("Sorry, I couldn't process the speech output. Please try again.", false);
-      }
+    addMessage(botResponse, false);
 
-    } catch (error) {
-      addMessage("Sorry, I couldn't process your request. Please try again.", false);
-      console.error("Error:", error);
+    const utterance = new SpeechSynthesisUtterance(botResponse);
+    utterance.lang = 'en-US';
 
-      // Restart listening in case of an error
-      if (isAssistantListening) {
-        startListening();
-      }
-    } finally {
+    utterance.onstart = () => {
+      setAnimationState(talkAssistantButton, 'replaying');
+      talkAssistantButton.textContent = 'Replaying...';
+    };
+
+    utterance.onend = () => {
+      setAnimationState(talkAssistantButton, null);
       talkAssistantButton.textContent = 'Listening...';
-    }
-  };
+      startListening(); // auto restart listening after bot reply
+    };
 
-  recognition.onerror = (event) => {
-    console.error('Speech recognition error:', event.error);
+    speechSynthesis.speak(utterance);
+  } catch (err) {
+    console.error("Fetch or speak error:", err);
+    addMessage("Sorry, something went wrong.", false);
+    startListening();
+  }
+};
 
-    // Restart listening on error
-    if (isAssistantListening) {
+recognition.onerror = (event) => {
+  console.error("Recognition error:", event.error);
+  stopListening();
+  if (!speechSynthesis.speaking) {
+    setTimeout(() => {
       startListening();
+    }, 1000);
+  }
+};
+
+recognition.onend = () => {
+  isAssistantListening = false;
+};
+
+
+
+
+
+  function setAnimationState(button, state) {
+    button.classList.remove('listening', 'processing', 'replaying');
+    // Hide all videos
+    const videos = document.querySelectorAll('.voice-assistant-container video');
+    videos.forEach(video => {
+        video.pause(); // Stop the video
+        video.classList.remove('active'); // Hide the video
+    });
+
+    if (state) {
+        button.classList.add(state); // Add the new state class to the button
+
+        // Show and play the corresponding video
+        const video = document.getElementById(`${state}Video`);
+        if (video) {
+            video.classList.add('active'); // Show the video
+            video.play(); // Play the video
+        }
     }
-  };
+}
+
+const stopAssistantButton = document.getElementById('stop-assistant-btn');
+
+stopAssistantButton.addEventListener('click', () => {
+  stopListening();
+
+  // Cancel ongoing speech if any
+  if (speechSynthesis.speaking || speechSynthesis.pending) {
+    speechSynthesis.cancel();
+  }
+
+  // Reset button state
+  setAnimationState(talkAssistantButton, null);
+  talkAssistantButton.textContent = 'Talk Assistant';
+});
+
 });
